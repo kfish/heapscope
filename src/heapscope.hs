@@ -1,4 +1,8 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS -Wall #-}
 
 module Main (main) where
@@ -13,21 +17,108 @@ import qualified Data.Iteratee as I
 import qualified Data.Iteratee.IO as I
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Typeable
+import Data.ZoomCache.Codec
 import System.Environment (getArgs)
 
-data HeapProfile = HeapProfile
+----------------------------------------------------------------------
+
+data HPHeader = HPHeader
     { hpJob :: ByteString
     , hpDate :: ByteString
     , hpSampleUnit :: ByteString
     , hpValueUnit :: ByteString
+    }
+    deriving (Show, Typeable)
+
+data HeapProfile = HeapProfile
+    { hpHeader :: HPHeader
     , hpSampleStart :: Maybe Double
     , hpSampleEnd :: Maybe Double
     , hpSamples :: Map ByteString Int
     }
-    deriving (Show)
+    deriving (Show, Typeable)
+
+trackTypeHeapProfile :: ByteString
+trackTypeHeapProfile = "ZOOMheap"
+
+instance ZoomReadable HeapProfile where
+    data SummaryData HeapProfile = SummaryHeapProfile
+        { summaryHPHeader :: Maybe HPHeader
+        , summaryHPSampleTimes :: [(Double, Double)]
+        , summaryHPSamples :: Map ByteString Int
+        } deriving (Show)
+
+    trackIdentifier = const trackTypeHeapProfile
+
+    readRaw = undefined
+    readSummary = undefined
+
+    prettyRaw = show
+    prettySummaryData = show
+
+instance ZoomWrite HeapProfile where
+    write = writeData
+
+instance ZoomWrite (SampleOffset, HeapProfile) where
+    write = writeDataVBR
+
+instance ZoomWrite (TimeStamp, HeapProfile) where
+    write = writeDataTS
+
+instance ZoomWritable HeapProfile where
+    data SummaryWork HeapProfile = SummaryWorkHeapProfile
+        { swHPHeader :: Maybe HPHeader
+        , swHPSampleTimes :: [(Double, Double)]
+        , swHPSamples :: Map ByteString Int
+        }
+
+    fromRaw = undefined
+    fromSummaryData = undefined
+
+    initSummaryWork = initSummaryHeapProfile
+    toSummaryData   = mkSummaryHeapProfile
+    updateSummaryData = updateSummaryHeapProfile
+    appendSummaryData = appendSummaryHeapProfile
+
+initSummaryHeapProfile :: SampleOffset -> SummaryWork HeapProfile
+initSummaryHeapProfile = const $ SummaryWorkHeapProfile Nothing [] Map.empty
+
+mkSummaryHeapProfile :: SampleOffsetDiff -> SummaryWork HeapProfile -> SummaryData HeapProfile
+mkSummaryHeapProfile (SODiff dur) SummaryWorkHeapProfile{..} = SummaryHeapProfile
+    { summaryHPHeader = swHPHeader
+    , summaryHPSampleTimes = swHPSampleTimes
+    , summaryHPSamples = swHPSamples
+    }
+
+updateSummaryHeapProfile :: SampleOffset -> HeapProfile -> SummaryWork HeapProfile
+                         -> SummaryWork HeapProfile
+updateSummaryHeapProfile t HeapProfile{..} sw@SummaryWorkHeapProfile{..} =
+    sw { swHPHeader = Just hpHeader
+       , swHPSampleTimes = times
+       , swHPSamples = Map.unionWith (+) swHPSamples hpSamples
+       }
+    where
+        times = case (hpSampleStart, hpSampleEnd) of
+            (Just s, Just e) -> swHPSampleTimes ++ [(s, e)]
+            _                -> swHPSampleTimes
+
+appendSummaryHeapProfile :: SampleOffsetDiff -> SummaryData HeapProfile
+                         -> SampleOffsetDiff -> SummaryData HeapProfile
+                         -> SummaryData HeapProfile
+appendSummaryHeapProfile (SODiff dur1) s1 (SODiff dur2) s2 = SummaryHeapProfile
+    { summaryHPHeader = summaryHPHeader s1
+    , summaryHPSampleTimes = summaryHPSampleTimes s1 ++ summaryHPSampleTimes s2
+    , summaryHPSamples = Map.unionWith (+) (summaryHPSamples s1) (summaryHPSamples s2)
+    }
+
+----------------------------------------------------------------------
 
 emptyHeapProfile :: HeapProfile
-emptyHeapProfile = HeapProfile "" "" "" "" Nothing Nothing Map.empty
+emptyHeapProfile = HeapProfile emptyHPHeader Nothing Nothing Map.empty
+
+emptyHPHeader :: HPHeader
+emptyHPHeader = HPHeader "" "" "" ""
 
 clearHeapProfile :: HeapProfile -> HeapProfile
 clearHeapProfile hp = hp { hpSampleStart = Nothing, hpSampleEnd = Nothing, hpSamples = Map.empty }
@@ -94,22 +185,26 @@ labelledDouble l = do
 parseJob :: HeapProfile -> Parser HeapProfile
 parseJob hp = do
     t <- labelledString "JOB"
-    return hp{hpJob = t}
+    let hdr = (hpHeader hp) { hpJob = t }
+    return hp{hpHeader = hdr}
     
 parseDate :: HeapProfile -> Parser HeapProfile
 parseDate hp = do
     t <- labelledString "DATE"
-    return hp{hpDate = t}
+    let hdr = (hpHeader hp) { hpDate = t }
+    return hp{hpHeader = hdr}
 
 parseSampleUnit :: HeapProfile -> Parser HeapProfile
 parseSampleUnit hp = do
     t <- labelledString "SAMPLE_UNIT"
-    return hp{hpSampleUnit = t}
+    let hdr = (hpHeader hp) { hpSampleUnit = t }
+    return hp{hpHeader = hdr}
 
 parseValueUnit :: HeapProfile -> Parser HeapProfile
 parseValueUnit hp = do
     t <- labelledString "VALUE_UNIT"
-    return hp{hpValueUnit = t}
+    let hdr = (hpHeader hp) { hpValueUnit = t }
+    return hp{hpHeader = hdr}
 
 parseSample :: HeapProfile -> Parser HeapProfile
 parseSample hp = do

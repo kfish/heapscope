@@ -24,4 +24,5 @@ executable heapscope
     bytestring,
     containers,
     iteratee,
-    mtl
+    mtl,
+    zoom-cache
