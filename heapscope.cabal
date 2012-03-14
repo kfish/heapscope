@@ -26,11 +26,13 @@ Library
       base < 3
 
   Build-Depends:
+    attoparsec,
     bytestring                >= 0.9     && < 0.10,
     containers                >= 0.2     && < 0.5
 
   Exposed-modules:
     HeapScope.HeapProfile
+    HeapScope.Parse
 
 executable heapscope
   Hs-Source-Dirs:    ., src
