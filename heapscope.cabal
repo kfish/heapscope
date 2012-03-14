@@ -24,6 +24,7 @@ executable heapscope
     blaze-builder,
     bytestring,
     containers,
+    data-default,
     iteratee,
     mtl,
     zoom-cache

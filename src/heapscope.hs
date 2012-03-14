@@ -10,10 +10,12 @@ module Main (main) where
 import Blaze.ByteString.Builder
 import Control.Applicative
 import Control.Monad (replicateM)
-import Control.Monad.Trans (liftIO, MonadIO)
+import Control.Monad.Trans (lift, MonadIO)
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.Iteratee
 import Data.ByteString (ByteString)
+import Data.Default
+import qualified Data.IntMap as IM
 import Data.Iteratee (Iteratee, Enumeratee)
 import qualified Data.Iteratee as I
 import qualified Data.Iteratee.IO as I
@@ -21,6 +23,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Monoid
 import Data.Typeable
+import Data.ZoomCache
 import Data.ZoomCache.Codec
 import System.Environment (getArgs)
 
@@ -243,35 +246,24 @@ main = do
     mapM_ hpFile =<< getArgs
 
 hpFile :: FilePath -> IO ()
-hpFile path = do
-    c <- I.run =<< I.enumFileRandom 102400 path (I.joinI $ (hpEnum (emptyHeapProfile) hpDo))
-    putStrLn $ "Got " ++ show c
+hpFile path = withFileWrite trackMap Nothing True iter zpath
+    where
+        iter = I.run =<< I.enumFileRandom 102400 path (I.joinI $ (hpEnum (emptyHeapProfile) hpDo))
+        zpath = path ++ ".zoom"
+        trackMap = IM.singleton 1 (setCodec (undefined :: HeapProfile) spec)
+        spec = def { specName = "hp" }
+
+hpDo :: Iteratee [HeapProfile] ZoomW ()
+hpDo = do
+    lift $ setWatermark 1 2
+    write 1 <$> I.head
+    write 1 <$> I.head
     return ()
 
-hpDo :: MonadIO m => Iteratee [HeapProfile] m ()
-hpDo = do
-    ps <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps
-
-    ps' <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps'
-
-    ps'' <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps''
-
-    ps''' <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps'''
-
-    ps'''' <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps''''
-
-    ps''''' <- I.head
-    liftIO $ putStrLn $ "Got " ++ show ps'''''
-
-hpEnum :: HeapProfile -> Enumeratee ByteString [HeapProfile] IO a
+hpEnum :: MonadIO m => HeapProfile -> Enumeratee ByteString [HeapProfile] m a
 hpEnum = I.unfoldConvStream hpIter
 
-hpIter :: HeapProfile -> Iteratee ByteString IO (HeapProfile, [HeapProfile])
+hpIter :: MonadIO m => HeapProfile -> Iteratee ByteString m (HeapProfile, [HeapProfile])
 hpIter = parserToIteratee . hpParse
 
 hpParse :: HeapProfile -> Parser (HeapProfile, [HeapProfile])
