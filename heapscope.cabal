@@ -14,22 +14,38 @@ category:            Development
 build-type:          Simple
 cabal-version:       >=1.8
 
+flag splitBase
+  description: Use the split-up base package.
+
+Library
+  if flag(splitBase)
+    build-depends:
+      base >= 3 && < 6
+  else
+    build-depends:
+      base < 3
+
+  Build-Depends:
+    bytestring                >= 0.9     && < 0.10,
+    containers                >= 0.2     && < 0.5
+
+  Exposed-modules:
+    HeapScope.HeapProfile
+
 executable heapscope
   Hs-Source-Dirs:    ., src
 
   Main-is:           heapscope.hs
-
-  Other-Modules:
-    HeapScope.HeapProfile
 
   Build-Depends:       
     attoparsec,
     attoparsec-iteratee,
     base >= 3 && < 6,
     blaze-builder,
-    bytestring,
-    containers,
+    bytestring                >= 0.9     && < 0.10,
+    containers                >= 0.2     && < 0.5,
     data-default,
     iteratee,
     mtl,
-    zoom-cache
+    zoom-cache,
+    heapscope
