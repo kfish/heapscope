@@ -9,6 +9,7 @@ module Main (main) where
 
 import Blaze.ByteString.Builder
 import Control.Applicative
+import Control.Monad (replicateM)
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Attoparsec.ByteString.Char8
 import Data.Attoparsec.Iteratee
@@ -53,11 +54,80 @@ instance ZoomReadable HeapProfile where
 
     trackIdentifier = const trackTypeHeapProfile
 
-    readRaw = undefined
-    readSummary = undefined
+    readRaw = readHeapProfile
+    readSummary = readSummaryHeapProfile
 
     prettyRaw = show
     prettySummaryData = show
+
+readByteString0 :: (Functor m, Monad m)
+                => Iteratee ByteString m ByteString
+readByteString0 = I.takeWhile (/= 0)
+
+readHPHeader :: (Functor m, Monad m)
+             => Iteratee ByteString m HPHeader
+readHPHeader = do
+    hpJob <- readByteString0
+    hpDate <- readByteString0
+    hpSampleUnit <- readByteString0
+    hpValueUnit <- readByteString0
+    return HPHeader{..}
+
+iterReadMaybe :: (Functor m, Monad m)
+          => Iteratee ByteString m a
+          -> Iteratee ByteString m (Maybe a)
+iterReadMaybe iter = do
+    m <- I.head
+    case m of
+        0 -> return Nothing
+        _ -> Just <$> iter
+
+iterReadTuple :: (Functor m, Monad m)
+          => Iteratee ByteString m a
+          -> Iteratee ByteString m b
+          -> Iteratee ByteString m (a, b)
+iterReadTuple iterA iterB = do
+    a <- iterA
+    b <- iterB
+    return (a, b)
+
+iterReadList :: (Functor m, Monad m)
+         => Iteratee ByteString m a
+         -> Iteratee ByteString m [a]
+iterReadList iter = do
+    n <- fromIntegral <$> readIntegerVLC
+    replicateM n iter
+
+iterReadMap :: (Functor m, Monad m, Ord a)
+        => Iteratee ByteString m a
+        -> Iteratee ByteString m b
+        -> Iteratee ByteString m (Map a b)
+iterReadMap iterA iterB = Map.fromList <$> iterReadList (iterReadTuple iterA iterB)
+
+readSampleTimes :: (Functor m, Monad m)
+                => Iteratee ByteString m [(Double, Double)]
+readSampleTimes = iterReadList (iterReadTuple readDouble64be readDouble64be)
+
+readSamples :: (Functor m, Monad m)
+            => Iteratee ByteString m (Map ByteString Int)
+readSamples = iterReadMap readByteString0 (fromIntegral <$> readIntegerVLC)
+
+readHeapProfile :: (Functor m, Monad m)
+                => Iteratee ByteString m HeapProfile
+readHeapProfile = do
+    hpHeader <- readHPHeader
+    hpSampleStart <- iterReadMaybe readDouble64be
+    hpSampleEnd <- iterReadMaybe readDouble64be
+    hpSamples <- readSamples
+    return HeapProfile{..}
+
+readSummaryHeapProfile :: (Functor m, Monad m)
+                       => Iteratee ByteString m (SummaryData HeapProfile)
+readSummaryHeapProfile = do
+    summaryHPHeader <- iterReadMaybe readHPHeader
+    summaryHPSampleTimes <- readSampleTimes
+    summaryHPSamples <- readSamples
+    return SummaryHeapProfile{..}
 
 instance ZoomWrite HeapProfile where
     write = writeData
