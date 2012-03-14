@@ -21,6 +21,7 @@ executable heapscope
     attoparsec,
     attoparsec-iteratee,
     base >= 3 && < 6,
+    blaze-builder,
     bytestring,
     containers,
     iteratee,

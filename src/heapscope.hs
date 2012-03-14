@@ -7,6 +7,7 @@
 
 module Main (main) where
 
+import Blaze.ByteString.Builder
 import Control.Applicative
 import Control.Monad.Trans (liftIO, MonadIO)
 import Data.Attoparsec.ByteString.Char8
@@ -17,6 +18,7 @@ import qualified Data.Iteratee as I
 import qualified Data.Iteratee.IO as I
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Monoid
 import Data.Typeable
 import Data.ZoomCache.Codec
 import System.Environment (getArgs)
@@ -73,13 +75,52 @@ instance ZoomWritable HeapProfile where
         , swHPSamples :: Map ByteString Int
         }
 
-    fromRaw = undefined
-    fromSummaryData = undefined
+    fromRaw = fromHeapProfile
+    fromSummaryData = fromSummaryHeapProfile
 
     initSummaryWork = initSummaryHeapProfile
     toSummaryData   = mkSummaryHeapProfile
     updateSummaryData = updateSummaryHeapProfile
     appendSummaryData = appendSummaryHeapProfile
+
+buildMaybe :: (a -> Builder) -> Maybe a -> Builder
+buildMaybe _     Nothing = fromIntegerVLC 0
+buildMaybe build (Just x) = fromIntegerVLC 1 `mappend` build x
+
+buildTuple :: (a -> Builder) -> (b -> Builder) -> (a, b) -> Builder
+buildTuple buildA buildB (a, b) = buildA a `mappend` buildB b
+
+buildList :: (a -> Builder) -> [a] -> Builder
+buildList build xs = mconcat $
+    (fromIntegerVLC . fromIntegral . length $ xs) : map build xs
+
+buildMap :: (a -> Builder) -> (b -> Builder) -> Map a b -> Builder
+buildMap buildA buildB m = buildList (buildTuple buildA buildB) (Map.assocs m)
+
+fromSampleTimes :: [(Double, Double)] -> Builder
+fromSampleTimes = buildList (buildTuple fromDouble fromDouble)
+
+fromSamples :: Map ByteString Int -> Builder
+fromSamples = buildMap fromByteString (fromIntegerVLC . fromIntegral)
+
+fromHPHeader :: HPHeader -> Builder
+fromHPHeader HPHeader{..} = mconcat $ map fromByteString
+    [hpJob, hpDate, hpSampleUnit, hpValueUnit]
+
+fromHeapProfile :: HeapProfile -> Builder
+fromHeapProfile HeapProfile{..} = mconcat
+    [ fromHPHeader hpHeader
+    , buildMaybe fromDouble hpSampleStart
+    , buildMaybe fromDouble hpSampleEnd
+    , fromSamples hpSamples
+    ]
+
+fromSummaryHeapProfile :: SummaryData HeapProfile -> Builder
+fromSummaryHeapProfile SummaryHeapProfile{..} = mconcat
+    [ buildMaybe fromHPHeader summaryHPHeader
+    , fromSampleTimes summaryHPSampleTimes
+    , fromSamples summaryHPSamples
+    ]
 
 initSummaryHeapProfile :: SampleOffset -> SummaryWork HeapProfile
 initSummaryHeapProfile = const $ SummaryWorkHeapProfile Nothing [] Map.empty
