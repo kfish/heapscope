@@ -97,14 +97,18 @@ buildList build xs = mconcat $
 buildMap :: (a -> Builder) -> (b -> Builder) -> Map a b -> Builder
 buildMap buildA buildB m = buildList (buildTuple buildA buildB) (Map.assocs m)
 
+-- | Build a NUL-terminated ByteString
+fromByteString0 :: ByteString -> Builder
+fromByteString0 bs = fromByteString bs `mappend` fromWord8 0
+
 fromSampleTimes :: [(Double, Double)] -> Builder
 fromSampleTimes = buildList (buildTuple fromDouble fromDouble)
 
 fromSamples :: Map ByteString Int -> Builder
-fromSamples = buildMap fromByteString (fromIntegerVLC . fromIntegral)
+fromSamples = buildMap fromByteString0 (fromIntegerVLC . fromIntegral)
 
 fromHPHeader :: HPHeader -> Builder
-fromHPHeader HPHeader{..} = mconcat $ map fromByteString
+fromHPHeader HPHeader{..} = mconcat $ map fromByteString0
     [hpJob, hpDate, hpSampleUnit, hpValueUnit]
 
 fromHeapProfile :: HeapProfile -> Builder
