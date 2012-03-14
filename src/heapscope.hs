@@ -216,15 +216,6 @@ appendSummaryHeapProfile (SODiff dur1) s1 (SODiff dur2) s2 = SummaryHeapProfile
 
 ----------------------------------------------------------------------
 
-emptyHeapProfile :: HeapProfile
-emptyHeapProfile = HeapProfile emptyHPHeader Nothing Nothing Map.empty
-
-emptyHPHeader :: HPHeader
-emptyHPHeader = HPHeader "" "" "" ""
-
-clearHeapProfile :: HeapProfile -> HeapProfile
-clearHeapProfile hp = hp { hpSampleStart = Nothing, hpSampleEnd = Nothing, hpSamples = Map.empty }
-
 main :: IO ()
 main = do
     mapM_ hpFile =<< getArgs
