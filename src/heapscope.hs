@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -22,28 +21,13 @@ import qualified Data.Iteratee.IO as I
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Monoid
-import Data.Typeable
 import Data.ZoomCache
 import Data.ZoomCache.Codec
 import System.Environment (getArgs)
 
+import HeapScope.HeapProfile
+
 ----------------------------------------------------------------------
-
-data HPHeader = HPHeader
-    { hpJob :: ByteString
-    , hpDate :: ByteString
-    , hpSampleUnit :: ByteString
-    , hpValueUnit :: ByteString
-    }
-    deriving (Show, Typeable)
-
-data HeapProfile = HeapProfile
-    { hpHeader :: HPHeader
-    , hpSampleStart :: Maybe Double
-    , hpSampleEnd :: Maybe Double
-    , hpSamples :: Map ByteString Int
-    }
-    deriving (Show, Typeable)
 
 trackTypeHeapProfile :: ByteString
 trackTypeHeapProfile = "ZOOMheap"

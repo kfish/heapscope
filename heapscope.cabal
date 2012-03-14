@@ -15,8 +15,13 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable heapscope
-  Main-is:           heapscope.hs
   Hs-Source-Dirs:    ., src
+
+  Main-is:           heapscope.hs
+
+  Other-Modules:
+    HeapScope.HeapProfile
+
   Build-Depends:       
     attoparsec,
     attoparsec-iteratee,
