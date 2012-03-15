@@ -6,7 +6,7 @@
 
 module Main (main) where
 
-import Control.Monad.Trans (lift, MonadIO)
+import Control.Monad.Trans (MonadIO)
 import Data.Attoparsec.Iteratee
 import Data.ByteString (ByteString)
 import Data.Default
@@ -36,11 +36,7 @@ hpFile path = withFileWrite trackMap Nothing True iter zpath
         spec = def { specName = "hp" }
 
 hpDo :: Iteratee [HeapProfile] ZoomW ()
-hpDo = do
-    lift $ setWatermark 1 2
-    lift . write 1 =<< I.head
-    lift . write 1 =<< I.head
-    lift . write 1 =<< I.head
+hpDo = I.mapM_ (write 1)
 
 hpEnum :: MonadIO m => HeapProfile -> Enumeratee ByteString [HeapProfile] m a
 hpEnum = I.unfoldConvStream hpIter
