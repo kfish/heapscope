@@ -15,7 +15,7 @@ import HeapScope.HeapProfile
 
 hpParse :: HeapProfile -> Parser (HeapProfile, [HeapProfile])
 hpParse hp = do
-    hp' <- parseJob hp <|> parseDate hp <|> parseSampleUnit hp <|> parseValueUnit hp <|> parseSample hp
+    hp' <- parseHeader hp <|> parseSample hp
     return (hp', [hp'])
 
 labelledString :: ByteString -> Parser ByteString
@@ -35,6 +35,9 @@ labelledDouble l = do
     d <- double
     endOfLine
     return d
+
+parseHeader :: HeapProfile -> Parser HeapProfile
+parseHeader hp = parseJob hp >>= parseDate >>= parseSampleUnit >>= parseValueUnit
 
 parseJob :: HeapProfile -> Parser HeapProfile
 parseJob hp = do
