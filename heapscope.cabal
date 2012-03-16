@@ -38,10 +38,10 @@ Library
     HeapScope.Parse
     HeapScope.ZoomCache
 
-executable heapscope
+executable heapscope-gen
   Hs-Source-Dirs:    ., src
 
-  Main-is:           heapscope.hs
+  Main-is:           heapscope-gen.hs
 
   Build-Depends:       
     attoparsec,
