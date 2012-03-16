@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS -Wall #-}
+{-# OPTIONS -Wall -fno-warn-unused-do-bind #-}
 
 module HeapScope.Parse (
   -- * Functions
