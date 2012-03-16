@@ -11,6 +11,7 @@ import Blaze.ByteString.Builder
 import Control.Applicative
 import Control.Monad (replicateM)
 import Data.ByteString (ByteString)
+import qualified Data.Foldable as Fold
 import Data.Iteratee (Iteratee)
 import qualified Data.Iteratee as I
 import Data.Map (Map)
@@ -30,6 +31,7 @@ instance ZoomReadable HeapProfile where
         { summaryHPHeader :: Maybe HPHeader
         , summaryHPSampleTimes :: [(Double, Double)]
         , summaryHPSamples :: Map ByteString Int
+        , summaryHPTotal :: Integer
         } deriving (Show)
 
     trackIdentifier = const trackTypeHeapProfile
@@ -107,6 +109,7 @@ readSummaryHeapProfile = do
     summaryHPHeader <- iterReadMaybe readHPHeader
     summaryHPSampleTimes <- readSampleTimes
     summaryHPSamples <- readSamples
+    summaryHPTotal <- readIntegerVLC
     return SummaryHeapProfile{..}
 
 instance ZoomWrite HeapProfile where
@@ -174,6 +177,7 @@ fromSummaryHeapProfile SummaryHeapProfile{..} = mconcat
     [ buildMaybe fromHPHeader summaryHPHeader
     , fromSampleTimes summaryHPSampleTimes
     , fromSamples summaryHPSamples
+    , fromIntegerVLC summaryHPTotal
     ]
 
 initSummaryHeapProfile :: SampleOffset -> SummaryWork HeapProfile
@@ -184,6 +188,7 @@ mkSummaryHeapProfile (SODiff dur) SummaryWorkHeapProfile{..} = SummaryHeapProfil
     { summaryHPHeader = swHPHeader
     , summaryHPSampleTimes = swHPSampleTimes
     , summaryHPSamples = swHPSamples
+    , summaryHPTotal = fromIntegral (Fold.sum swHPSamples)
     }
 
 updateSummaryHeapProfile :: SampleOffset -> HeapProfile -> SummaryWork HeapProfile
@@ -205,5 +210,6 @@ appendSummaryHeapProfile (SODiff dur1) s1 (SODiff dur2) s2 = SummaryHeapProfile
     { summaryHPHeader = summaryHPHeader s1
     , summaryHPSampleTimes = summaryHPSampleTimes s1 ++ summaryHPSampleTimes s2
     , summaryHPSamples = Map.unionWith (+) (summaryHPSamples s1) (summaryHPSamples s2)
+    , summaryHPTotal = (summaryHPTotal s1) + (summaryHPTotal s2)
     }
 
