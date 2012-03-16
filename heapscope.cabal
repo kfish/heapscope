@@ -55,3 +55,10 @@ executable heapscope-gen
     mtl,
     zoom-cache,
     heapscope
+
+------------------------------------------------------------------------
+-- Git repo
+--
+source-repository head
+  type: git
+  location: git://github.com/kfish/heapscope.git
