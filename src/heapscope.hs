@@ -36,7 +36,7 @@ hpFile path = withFileWrite trackMap Nothing True iter zpath
         spec = def { specName = "hp" }
 
 hpDo :: Iteratee [HeapProfile] ZoomW ()
-hpDo = I.mapM_ (write 1)
+hpDo = I.mapM_ (\hp -> maybe (return ()) (\ts -> write 1 (TS ts, hp)) (hpSampleStart hp))
 
 hpEnum :: MonadIO m => HeapProfile -> Enumeratee ByteString [HeapProfile] m a
 hpEnum = I.unfoldConvStream hpIter
