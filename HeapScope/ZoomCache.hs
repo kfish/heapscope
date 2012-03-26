@@ -5,6 +5,8 @@
 {-# OPTIONS -Wall -fno-warn-orphans #-}
 
 module HeapScope.ZoomCache (
+      SummaryData(..)
+    , SummaryWork(..)
 ) where
 
 import Blaze.ByteString.Builder
@@ -111,6 +113,8 @@ readSummaryHeapProfile = do
     summaryHPSamples <- readSamples
     summaryHPTotal <- readIntegerVLC
     return SummaryHeapProfile{..}
+
+----------------------------------------------------------------------
 
 instance ZoomWrite HeapProfile where
     write = writeData
