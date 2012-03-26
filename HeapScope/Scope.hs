@@ -15,6 +15,7 @@
 
 module HeapScope.Scope (
       scopeReadHeapProfile
+    , hsIdentifiers
 ) where
 
 import Control.Arrow (second)

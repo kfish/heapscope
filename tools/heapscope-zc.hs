@@ -17,11 +17,13 @@ import Data.Iteratee (Iteratee, Enumeratee)
 import qualified Data.Iteratee as I
 import qualified Data.Iteratee.IO as I
 import Data.ZoomCache
+import Data.ZoomCache.Dump
 import System.Console.GetOpt
 import UI.Command
 
 import HeapScope.HeapProfile
 import HeapScope.Parse
+import HeapScope.Scope
 import HeapScope.ZoomCache ()
 
 ------------------------------------------------------------
@@ -128,6 +130,56 @@ hpIter :: MonadIO m => HeapProfile -> Iteratee ByteString m (HeapProfile, [HeapP
 hpIter = parserToIteratee . hpParse
 
 ------------------------------------------------------------
+
+hszcInfo :: Command ()
+hszcInfo = defCmd {
+          cmdName = "info"
+        , cmdHandler = hszcInfoHandler
+        , cmdCategory = "Reading"
+        , cmdShortDesc = "Display basic info about a heapscope zoom-cache file"
+        , cmdExamples = [("Display info about foo.hp.zoom", "foo.hp.zoom")]
+        }
+
+hszcInfoHandler :: App () ()
+hszcInfoHandler = mapM_ (liftIO . zoomInfoFile hsIdentifiers) =<< appArgs
+
+------------------------------------------------------------
+
+hszcDump :: Command ()
+hszcDump = defCmd {
+          cmdName = "dump"
+        , cmdHandler = hszcDumpHandler
+        , cmdCategory = "Reading"
+        , cmdShortDesc = "Read zoom-cache data"
+        , cmdExamples = [("Yo", "")]
+        }
+
+hszcDumpHandler :: App () ()
+hszcDumpHandler = do
+    (config, filenames) <- liftIO . processArgs =<< appArgs
+    mapM_ (liftIO . zoomDumpFile hsIdentifiers (track config)) filenames
+
+------------------------------------------------------------
+
+hszcSummary :: Command ()
+hszcSummary = defCmd {
+          cmdName = "summary"
+        , cmdHandler = hszcSummaryHandler
+        , cmdCategory = "Reading"
+        , cmdShortDesc = "Read zoom-cache summary data"
+        , cmdExamples = [("Read summary level 3 from foo.zoom", "3 foo.zoom")]
+        }
+
+hszcSummaryHandler :: App () ()
+hszcSummaryHandler = do
+    (config, filenames) <- liftIO . processArgs =<< appArgs
+    liftIO . (f (track config)) $ filenames
+    where
+        f trackNo (lvl:paths) = mapM_ (zoomDumpSummaryLevel (read lvl)
+                                       hsIdentifiers trackNo) paths
+        f _ _ = putStrLn "Usage: zoom-cache summary n file.zoom"
+
+------------------------------------------------------------
 -- The Application
 --
 
@@ -143,9 +195,9 @@ hszc = def {
         , appSeeAlso = [""]
         , appProject = "HeapScope"
         , appCmds = [ hszcGen
-                    -- , hszcInfo
-                    -- , hszcDump
-                    -- , hszcSummary
+                    , hszcInfo
+                    , hszcDump
+                    , hszcSummary
                     ]
 	}
 

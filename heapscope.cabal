@@ -60,6 +60,7 @@ executable heapscope-zc
     mtl                       >= 2.0.0.0 && < 3,
     scope,
     ui-command,
+    type-level,
     zoom-cache,
     heapscope
 
