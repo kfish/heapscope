@@ -46,7 +46,10 @@ instance ZoomReadable HeapProfile where
 
 readByteString0 :: (Functor m, Monad m)
                 => Iteratee ByteString m ByteString
-readByteString0 = I.takeWhile (/= 0)
+readByteString0 = do
+    bs <- I.takeWhile (/= 0)
+    I.drop 1
+    return bs
 
 readHPHeader :: (Functor m, Monad m)
              => Iteratee ByteString m HPHeader
